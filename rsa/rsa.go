@@ -76,8 +76,7 @@ func RSADecryptBlock(src, privateKeyBytes []byte) (bytesDecrypt []byte, err erro
 	if err != nil {
 		return
 	}
-	keySize := privateKey.Size()
-	srcSize := len(src)
+	keySize, srcSize := privateKey.Size(), len(src)
 	var offSet = 0
 	var buffer = bytes.Buffer{}
 	for offSet < srcSize {
