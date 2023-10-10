@@ -23,14 +23,15 @@ func GenerateRSA(size int) ([]byte, []byte, error) {
 	pem.Encode(priBuf, priBlock)
 	// priKey = pem.EncodeToMemory(block)
 
-	//publicKey := &privateKey.PublicKey
-	//derPkix, err := x509.MarshalPKIXPublicKey(publicKey)
-	//if err != nil {
-	//	return nil, nil, err
-	//}
+	publicKey := &privateKey.PublicKey
+	derPkix, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return nil, nil, err
+	}
 	pubBlock := &pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: x509.MarshalPKCS1PublicKey(&privateKey.PublicKey),
+		Type: "PUBLIC KEY",
+		//Bytes: x509.MarshalPKCS1PublicKey(&privateKey.PublicKey),
+		Bytes: derPkix,
 	}
 	pubBuf := new(bytes.Buffer)
 	pem.Encode(pubBuf, pubBlock)
