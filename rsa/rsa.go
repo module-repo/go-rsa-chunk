@@ -10,28 +10,33 @@ import (
 )
 
 // GenerateRSA 生成RSA密钥对
-func GenerateRSA(size int) (priKey, pubKey []byte, err error) {
+func GenerateRSA(size int) ([]byte, []byte, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, size)
 	if err != nil {
 		return nil, nil, err
 	}
-	derStream := x509.MarshalPKCS1PrivateKey(privateKey)
-	block := &pem.Block{
+	priBlock := &pem.Block{
 		Type:  "RSA PRIVATE KEY",
-		Bytes: derStream,
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
 	}
-	priKey = pem.EncodeToMemory(block)
-	publicKey := &privateKey.PublicKey
-	derPkix, err := x509.MarshalPKIXPublicKey(publicKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	block = &pem.Block{
+	priBuf := new(bytes.Buffer)
+	pem.Encode(priBuf, priBlock)
+	// priKey = pem.EncodeToMemory(block)
+
+	//publicKey := &privateKey.PublicKey
+	//derPkix, err := x509.MarshalPKIXPublicKey(publicKey)
+	//if err != nil {
+	//	return nil, nil, err
+	//}
+	pubBlock := &pem.Block{
 		Type:  "PUBLIC KEY",
-		Bytes: derPkix,
+		Bytes: x509.MarshalPKCS1PublicKey(&privateKey.PublicKey),
 	}
-	pubKey = pem.EncodeToMemory(block)
-	return
+	pubBuf := new(bytes.Buffer)
+	pem.Encode(pubBuf, pubBlock)
+	//pubKey = pem.EncodeToMemory(block)
+
+	return priBuf.Bytes(), pubBuf.Bytes(), nil
 }
 
 // RSAEncryptBlock 公钥加密-分段
