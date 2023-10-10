@@ -54,9 +54,9 @@ func RSAEncryptBlock(src, publicKeyByte []byte) (bytesEncrypt []byte, err error)
 			endIndex = srcSize
 		}
 		// 加密一部分
-		bytesOnce, err := rsa.EncryptPKCS1v15(rand.Reader, publicKey.(*rsa.PublicKey), src[offSet:endIndex])
-		if err != nil {
-			return nil, err
+		bytesOnce, err2 := rsa.EncryptPKCS1v15(rand.Reader, publicKey.(*rsa.PublicKey), src[offSet:endIndex])
+		if err2 != nil {
+			return nil, err2
 		}
 		buffer.Write(bytesOnce)
 		offSet = endIndex
@@ -66,7 +66,7 @@ func RSAEncryptBlock(src, publicKeyByte []byte) (bytesEncrypt []byte, err error)
 }
 
 // RSADecryptBlock 私钥解密-分段
-func RSADecryptBlock(src, privateKeyBytes []byte) (bytesDecrypt []byte, err error) {
+func RSADecryptBlock(src, privateKeyBytes []byte, blockSize int) (bytesDecrypt []byte, err error) {
 	block, _ := pem.Decode(privateKeyBytes)
 	if block == nil {
 		return nil, errors.New("private key error")
@@ -84,11 +84,19 @@ func RSADecryptBlock(src, privateKeyBytes []byte) (bytesDecrypt []byte, err erro
 		if endIndex > srcSize {
 			endIndex = srcSize
 		}
-		bytesOnce, err := rsa.DecryptPKCS1v15(rand.Reader, privateKey, src[offSet:endIndex])
-		if err != nil {
-			return nil, err
+		if endIndex > blockSize {
+			bytesOnce, err2 := rsa.DecryptPKCS1v15(rand.Reader, privateKey, src[offSet:blockSize])
+			if err2 != nil {
+				return nil, err2
+			}
+			buffer.Write(bytesOnce)
+		} else {
+			bytesOnce, err2 := rsa.DecryptPKCS1v15(rand.Reader, privateKey, src[offSet:endIndex])
+			if err2 != nil {
+				return nil, err2
+			}
+			buffer.Write(bytesOnce)
 		}
-		buffer.Write(bytesOnce)
 		offSet = endIndex
 	}
 	bytesDecrypt = buffer.Bytes()
