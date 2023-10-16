@@ -9,49 +9,80 @@ import (
 	"errors"
 )
 
+const (
+	BlockType_PublicKey     = "PUBLIC KEY"
+	BlockType_RSAPublicKey  = "RSA PUBLIC KEY"
+	BlockType_RSAPrivateKey = "RSA PRIVATE KEY"
+)
+
+const (
+	RSAType_PKIX  = "PKIX"
+	RSAType_PKCS1 = "PKCS1"
+)
+
 // GenerateRSA 生成RSA密钥对
-func GenerateRSA(size int) ([]byte, []byte, error) {
+func GenerateRSA(pubBlockType, priBlockType, rsaPubType string, size int) ([]byte, []byte, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, size)
 	if err != nil {
 		return nil, nil, err
 	}
 	priBlock := &pem.Block{
-		Type:  "RSA PRIVATE KEY",
+		Type:  priBlockType,
 		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
 	}
 	priBuf := new(bytes.Buffer)
-	pem.Encode(priBuf, priBlock)
-	// priKey = pem.EncodeToMemory(block)
+	pem.Encode(priBuf, priBlock) // pem.EncodeToMemory(block)
 
+	var pubBytes []byte
 	publicKey := &privateKey.PublicKey
-	derPkix, err := x509.MarshalPKIXPublicKey(publicKey)
-	if err != nil {
-		return nil, nil, err
+
+	switch rsaPubType {
+	case "PKIX":
+		pubBytes, err = x509.MarshalPKIXPublicKey(publicKey)
+		if err != nil {
+			return nil, nil, err
+		}
+	case "PKCS1":
+		pubBytes = x509.MarshalPKCS1PublicKey(publicKey)
+	default:
+		return nil, nil, errors.New("unknown type, only PKIX or PKCS1")
 	}
+
 	pubBlock := &pem.Block{
-		Type: "PUBLIC KEY",
-		//Bytes: x509.MarshalPKCS1PublicKey(&privateKey.PublicKey),
-		Bytes: derPkix,
+		Type:  pubBlockType,
+		Bytes: pubBytes,
 	}
 	pubBuf := new(bytes.Buffer)
-	pem.Encode(pubBuf, pubBlock)
-	//pubKey = pem.EncodeToMemory(block)
+	pem.Encode(pubBuf, pubBlock) // pem.EncodeToMemory(block)
 
 	return priBuf.Bytes(), pubBuf.Bytes(), nil
 }
 
 // RSAEncryptBlock 公钥加密-分段
-func RSAEncryptBlock(src, publicKeyByte []byte) (bytesEncrypt []byte, err error) {
+func RSAEncryptBlock(src, publicKeyByte []byte, rsaPubType string) (bytesEncrypt []byte, err error) {
 	block, _ := pem.Decode(publicKeyByte)
 	if block == nil {
 		return nil, errors.New("public key error")
 	}
 	// 解析公钥
-	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return
+	var pubKey any
+
+	switch rsaPubType {
+	case "PKIX":
+		pubKey, err = x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+	case "PKCS1":
+		pubKey, err = x509.ParsePKCS1PublicKey(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, errors.New("unknown type, only PKIX or PKCS1")
 	}
-	keySize, srcSize := publicKey.(*rsa.PublicKey).Size(), len(src)
+
+	keySize, srcSize := pubKey.(*rsa.PublicKey).Size(), len(src)
 	offSet, once := 0, keySize-11 //单次加密的长度需要减掉padding的长度，PKCS1为11
 	buffer := bytes.Buffer{}
 	for offSet < srcSize {
@@ -60,7 +91,7 @@ func RSAEncryptBlock(src, publicKeyByte []byte) (bytesEncrypt []byte, err error)
 			endIndex = srcSize
 		}
 		// 加密一部分
-		bytesOnce, err2 := rsa.EncryptPKCS1v15(rand.Reader, publicKey.(*rsa.PublicKey), src[offSet:endIndex])
+		bytesOnce, err2 := rsa.EncryptPKCS1v15(rand.Reader, pubKey.(*rsa.PublicKey), src[offSet:endIndex])
 		if err2 != nil {
 			return nil, err2
 		}
