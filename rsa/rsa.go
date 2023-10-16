@@ -65,7 +65,7 @@ func RSAEncryptBlock(src, publicKeyByte []byte, rsaPubType string) (bytesEncrypt
 		return nil, errors.New("public key error")
 	}
 	// 解析公钥
-	var pubKey any
+	var pubKey interface{}
 
 	switch rsaPubType {
 	case "PKIX":
